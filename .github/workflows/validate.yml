@@ -286,12 +286,12 @@ jobs:
       # checkout step above pins to the real head sha instead (so tests run the
       # contributor's actual commit) -- so auto-detection would otherwise attach
       # the report to a merge sha that never appears in the PR's own checks list.
-      # Token path: same-repo PRs and pushes that have CODECOV_TOKEN configured.
-      # Forks (and any clone without the secret) must not take this path — an empty
-      # token + fail_ci_if_error on a protected branch name fails the whole job even
-      # when tests passed (Token required - not valid tokenless upload).
+      # Token path: upstream / non-fork repos with CODECOV_TOKEN. Forks must not
+      # take this path — an empty token + fail_ci_if_error on protected "main"
+      # fails the job after a green suite (Token required - not valid tokenless upload).
+      # Do not gate on secrets.* in if: — that context is rejected at workflow parse time.
       - name: Upload coverage to Codecov
-        if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.CODECOV_TOKEN != '' }}
+        if: ${{ !github.event.repository.fork && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -320,11 +320,11 @@ jobs:
           override_pr: ${{ github.event.pull_request.number }}
           fail_ci_if_error: true
 
-      # Push on a fork / clone with no CODECOV_TOKEN: tokenless upload with owner:branch
-      # so Codecov does not treat bare "main" as a protected base-repo branch. Soft-fail
-      # so missing Codecov setup never reds CI after a green test suite.
-      - name: Upload coverage to Codecov (no-token push)
-        if: ${{ github.event_name == 'push' && secrets.CODECOV_TOKEN == '' }}
+      # Push on a fork: tokenless upload with owner:branch so Codecov does not treat
+      # bare "main" as a protected base-repo branch. Soft-fail so missing Codecov
+      # setup never reds CI after a green test suite.
+      - name: Upload coverage to Codecov (fork push tokenless)
+        if: ${{ github.event.repository.fork && github.event_name == 'push' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: ./coverage/lcov.info
@@ -334,7 +334,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Upload Vitest results to Codecov
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.CODECOV_TOKEN != '' }}
+        if: ${{ !cancelled() && !github.event.repository.fork && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -358,8 +358,8 @@ jobs:
           override_pr: ${{ github.event.pull_request.number }}
           fail_ci_if_error: false
 
-      - name: Upload Vitest results to Codecov (no-token push)
-        if: ${{ !cancelled() && github.event_name == 'push' && secrets.CODECOV_TOKEN == '' }}
+      - name: Upload Vitest results to Codecov (fork push tokenless)
+        if: ${{ !cancelled() && github.event.repository.fork && github.event_name == 'push' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: ./reports/junit/vitest.xml
