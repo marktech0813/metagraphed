@@ -299,7 +299,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           METAGRAPH_KV_NAMESPACE_ID: ${{ secrets.METAGRAPH_KV_NAMESPACE_ID }}
-          PUBLISH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_mode || 'publish' }}
+          # Forks usually lack Cloudflare secrets; schedule must not hard-fail.
+          # Real publish only on workflow_dispatch publish_mode=publish or when secrets exist on upstream.
+          PUBLISH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_mode || (github.repository == 'JSONbored/metagraphed' && 'publish' || 'dry-run') }}
 
       # Compute the real "what changed since last publish" changelog by diffing
       # the staged build against the previous R2 publish — BEFORE r2:upload
